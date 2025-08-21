@@ -131,10 +131,6 @@ fn from_morse(s: &str, data: String) -> Result<String, Box<dyn std::error::Error
             if value == code {
                 morse_result.push(String::from(key));
             }
-            // if code == "/" {
-            //     morse_result.push(" ".to_string());
-            //     break
-            // }
         }
     }
 
