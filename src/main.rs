@@ -66,7 +66,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if args.utf {
-        output = to_string(&output);
+        output = from_binary(&output);
     }
 
     if args.tomorse {
@@ -95,7 +95,7 @@ fn to_binary(s: &str) -> String {
         .join(" ")
 }
 
-fn to_string(s: &str) -> String {
+fn from_binary(s: &str) -> String {
     s.split_whitespace()
         .filter_map(|b| u8::from_str_radix(b, 2).ok()) // binary -> number
         .map(|num| num as char) // number -> char
