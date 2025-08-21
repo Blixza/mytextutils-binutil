@@ -1,8 +1,9 @@
 use clap::Parser;
 use std::collections::HashMap;
 use std::fs;
-use serde::Deserialize;
 use serde_json;
+use std::io;
+
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
@@ -16,13 +17,25 @@ struct Args {
     lowercase: bool,
 
     #[arg(short, long)]
-    binary: bool,
+    tobinary: bool,
 
     #[arg(short, long)]
     reverse: bool,
 
     #[arg(short, long)]
-    utf: bool,
+    frombinary: bool,
+
+    #[arg(short, long)]
+    fromfile: bool,
+
+    #[arg(short, long)]
+    tofile: bool,
+
+    #[arg(short, long, required_if_eq("tofile", "true"))]
+    filepath: Option<String>,
+
+    #[arg(long)]
+    keepcontents: bool,
 
     #[arg(short, long)]
     tomorse: bool,
@@ -31,18 +44,22 @@ struct Args {
     frommorse: bool,
 
     #[arg(short, long, required_if_eq("to_morse", "true"), required_if_eq("from_morse", "true"))]
-    morselanguage: String
+    morselanguage: Option<String>,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
-    let mut data;
+    let data;
+
+    let filepath;
 
     let morse_language = args.morselanguage;
 
-    match morse_language.as_str() {
-        "en" => data = fs::read_to_string("morse_en.json")?,
+    match morse_language.as_deref() {
+        Some(lang) if lang == "en" => data = fs::read_to_string("morse_en.json")?,
+        // Some(lang) if lang == "ru" => data = fs::read_to_string("morse_ru.json")?,
+        // TODO ^^
         _ => data = fs::read_to_string("morse_en.json")?,
     }
 
@@ -61,22 +78,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         output = reverse(&output);
     }
 
-    if args.binary {
+    if args.tobinary {
         output = to_binary(&output);
     }
 
-    if args.utf {
+    if args.frombinary {
         output = from_binary(&output);
     }
 
     if args.tomorse {
-
         output = to_morse(&output, data.clone())?;
     }
 
     if args.frommorse {
-
         output = from_morse(&output, data.clone())?;
+    }
+
+    if args.fromfile {
+        output = from_file(&output)?;
+    }
+
+    if args.tofile {
+        filepath = args.filepath.clone();
+        output = to_file(filepath.as_deref().unwrap(), &output, args.keepcontents)?;
     }
 
     println!("{}", output);
@@ -135,4 +159,46 @@ fn from_morse(s: &str, data: String) -> Result<String, Box<dyn std::error::Error
     }
 
     Ok(morse_result.join(" "))
+}
+
+fn from_file(filepath: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let contents = fs::read_to_string(filepath)?;
+
+    println!("{}", contents);
+
+    Ok(contents)
+}
+
+fn to_file(filepath: &str, text: &str, keep: bool) -> Result<String, Box<dyn std::error::Error>> {
+    let mut result = String::new();
+
+    let contents = fs::read_to_string(filepath)?;
+
+    if !keep {
+        if contents != "".to_string() {
+            let mut input = String::new();
+
+            println!("{} will be OVERWRITTEN. Are you sure? (YES)", filepath);
+            io::stdin()
+                .read_line(&mut input)
+                .expect("Fail");
+
+            let input = input.trim();
+
+            if input == "YES" {
+                fs::write(filepath, text)?;
+                result = format!("Done: {filepath}")
+            }
+        } else {
+            fs::write(filepath, text)?;
+            result = format!("Done: {filepath}")
+        }
+    } else {
+        let contents = fs::read_to_string(filepath)?;
+        fs::write(filepath, contents + text)?;
+
+        result = format!("Done: {filepath}")
+    }
+
+    Ok(result)
 }
